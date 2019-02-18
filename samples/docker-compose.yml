@@ -1,0 +1,67 @@
+version: "3"
+
+networks:
+  web:
+    external: false
+
+services:
+  httpd:
+    build: "${PWD}/context/httpd"
+    depends_on:
+      - php-fpm
+    networks:
+      - web
+    ports:
+      - 80:80
+      - 443:443
+    environment:
+      FPM_HOST: ${FPM_HOST}
+      FPM_PORT: ${FPM_PORT}
+      DOCROOT: ${DOCROOT}
+    volumes:
+      - "${PWD}/src:${WWW_DATA_HOME}:ro"
+      - "${PWD}/ssl/example.localhost.crt:/usr/local/apache2/conf/server.crt:ro"
+      - "${PWD}/ssl/example.localhost.key:/usr/local/apache2/conf/server.key:ro"
+
+  php-fpm:
+    build: "${PWD}/context/php-fpm"
+    depends_on:
+      - mysql
+    networks:
+      - web
+    environment:
+      PHP_XDEBUG_REMOTE_HOST: ${XDEBUG_REMOTE_HOST}
+      PHP_XDEBUG_REMOTE_PORT: ${XDEBUG_REMOTE_PORT}
+      PHP_XDEBUG_IDEKEY: ${XDEBUG_IDEKEY}
+    volumes:
+      - "${PWD}/src:${WWW_DATA_HOME}"
+      - "${PWD}/data/php/composer/cache:/var/www/.composer/cache"
+
+  mysql:
+    image: mysql:5.7
+    networks:
+      - web
+    ports:
+      - 3306:3306
+    environment:
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: root
+    user: 1000:1000
+    volumes:
+      - "${PWD}/data/mysql:/var/lib/mysql"
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    depends_on:
+      - mysql
+    networks:
+      - web
+    ports:
+      - 8080:80
+    environment:
+      PMA_HOST: ${DB_HOST}
+      PMA_PORT: 3306
+      PMA_USER: ${DB_USER}
+      PMA_PASSWORD: ${DB_PASSWORD}

@@ -182,9 +182,11 @@ RUN set -ex \
 	&& echo '' >> /usr/local/bin/xdebug \
 	&& echo 'if [ -s "/usr/local/etc/php/conf.d/xdebug.ini" ]; then' >> /usr/local/bin/xdebug \
 	&& echo '    mv /usr/local/etc/php/conf.d/xdebug.ini /usr/local/etc/php/conf.d/xdebug.iniOLD \' >> /usr/local/bin/xdebug \
+	&& echo '    && kill -USR2 1 \' >> /usr/local/bin/xdebug \
 	&& echo '    && echo "========= XDebug was disabled ========="' >> /usr/local/bin/xdebug \
 	&& echo 'else' >> /usr/local/bin/xdebug \
 	&& echo '    mv /usr/local/etc/php/conf.d/xdebug.iniOLD /usr/local/etc/php/conf.d/xdebug.ini \' >> /usr/local/bin/xdebug \
+	&& echo '    && kill -USR2 1 \' >> /usr/local/bin/xdebug \
 	&& echo '    && echo "========= XDebug was enabled ========="' >> /usr/local/bin/xdebug \
 	&& echo 'fi' >> /usr/local/bin/xdebug \
 	&& chmod +x /usr/local/bin/xdebug \

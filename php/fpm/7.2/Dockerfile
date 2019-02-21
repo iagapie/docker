@@ -2,36 +2,14 @@ FROM php:7.2-fpm as base
 
 MAINTAINER Igor Agapie <igoragapie@gmail.com>
 
-# |--------------------------------------------------------------------------
-# | Supercronic
-# |--------------------------------------------------------------------------
-# |
-# | Supercronic is a drop-in replacement for cron (for containers).
-# |
-# | CMD ["/usr/local/bin/supercronic", "/etc/crontab"]
-# |
-
-ENV SUPERCRONIC_URL=https://github.com/aptible/supercronic/releases/download/v0.1.6/supercronic-linux-amd64 \
-    SUPERCRONIC=supercronic-linux-amd64 \
-    SUPERCRONIC_SHA1SUM=c3b78d342e5413ad39092fd3cfc083a85f5e2b75
-
 RUN set -ex \
-	&& curl -fsSLO "$SUPERCRONIC_URL" \
-	&& echo "${SUPERCRONIC_SHA1SUM}  ${SUPERCRONIC}" | sha1sum -c - \
-	&& chmod +x "$SUPERCRONIC" \
-	&& mv "$SUPERCRONIC" "/usr/local/bin/${SUPERCRONIC}" \
-	&& ln -s "/usr/local/bin/${SUPERCRONIC}" /usr/local/bin/supercronic
-
-RUN set -ex \
-	&& apt-get update \
-	&& apt-get upgrade -y --no-install-recommends \
-	&& apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
-	&& rm -r /var/lib/apt/lists/*
-
-RUN set -ex \
+	&& chown -Rf www-data:www-data /var/www \
+	\
 	&& mkdir -p /usr/share/man/man1 \
 	&& mkdir -p /usr/share/man/man7 \
+	\
 	&& apt-get update \
+	&& apt-get upgrade -y --no-install-recommends \
 	&& apt-get install -y --no-install-recommends \
 		bash-completion \
 		vim \
@@ -48,29 +26,9 @@ RUN set -ex \
 		netcat \
 		snmp \
 		git \
-	&& apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
-	&& rm -r /var/lib/apt/lists/*
-
-RUN set -ex \
-	&& echo 'if [[ -f "/etc/bash_completion" ]]; then' >> /etc/profile \
-	&& echo '    . /etc/bash_completion' >> /etc/profile \
-	&& echo 'fi' >> /etc/profile
-
-# Install Node, NPM, Grunt and Yarn
-
-RUN set -ex \
-	&& apt-get update \
-	&& apt-get install -y --no-install-recommends dirmngr gnupg \
-	&& curl -sL https://deb.nodesource.com/setup_10.x | bash - \
-	&& apt-get update \
-	&& apt-get install -y --no-install-recommends nodejs \
-	&& apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false dirmngr gnupg \
-	&& rm -r /var/lib/apt/lists/* \
-    && npm i -g grunt-cli yarn
-
-RUN set -ex \
-	&& apt-get update \
-	&& apt-get install -y --no-install-recommends \
+		dirmngr \
+		gnupg \
+		\
 		libc-client-dev \
 		libicu-dev \
 		libfreetype6-dev \
@@ -93,7 +51,13 @@ RUN set -ex \
 		libsqlite3-dev \
 		libbz2-dev \
 	&& apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
-	&& rm -r /var/lib/apt/lists/*
+	&& rm -r /var/lib/apt/lists/* \
+	\
+	&& echo 'if [[ -f "/etc/bash_completion" ]]; then' >> /etc/profile \
+	&& echo '    . /etc/bash_completion' >> /etc/profile \
+	&& echo 'fi' >> /etc/profile
+
+# Install PHP Extensions
 
 RUN set -ex \
 	&& docker-php-source extract \
@@ -140,41 +104,31 @@ RUN set -ex \
 	&& docker-php-ext-install -j$(nproc) odbc
 
 RUN set -ex \
-	&& pecl update-channels
+	&& pecl update-channels \
+	&& pecl install \
+		mcrypt-1.0.2 \
+		memcached \
+		apcu \
+		redis \
+		oauth \
+		xdebug \
+		ssh2-1.1.2 \
+	&& docker-php-ext-enable \
+		mcrypt \
+		memcached \
+		apcu \
+		redis \
+		oauth \
+		ssh2 \
+	&& echo "zend_extension=$(find /usr/local/lib/php/extensions/ -name xdebug.so)" > /usr/local/etc/php/conf.d/xdebug.iniOLD \
+	&& rm -rf /tmp/pear ~/.pearrc \
+	&& docker-php-source delete
 
-RUN set -ex \
-	&& pecl install mcrypt-1.0.2 \
-	&& docker-php-ext-enable mcrypt
+# Xdebug Config
 
-RUN set -ex \
-	&& pecl install memcached \
-	&& docker-php-ext-enable memcached
-
-RUN set -ex \
-	&& pecl install apcu \
-	&& docker-php-ext-enable apcu
-
-RUN set -ex \
-	&& pecl install redis \
-	&& docker-php-ext-enable redis
-
-RUN set -ex \
-	&& pecl install oauth \
-	&& docker-php-ext-enable oauth
-
-RUN set -ex \
-	&& pecl install ssh2-1.1.2 \
-	&& docker-php-ext-enable ssh2
-
-# Install XDebug
-
-RUN set -ex \
-	&& pecl install xdebug \
-	&& echo "zend_extension=$(find /usr/local/lib/php/extensions/ -name xdebug.so)" > /usr/local/etc/php/conf.d/xdebug.iniOLD
-
-ENV PHP_XDEBUG_REMOTE_HOST localhost
-ENV PHP_XDEBUG_REMOTE_PORT 9000
-ENV PHP_XDEBUG_IDEKEY IDEKEY
+ENV PHP_XDEBUG_REMOTE_HOST=localhost \
+	PHP_XDEBUG_REMOTE_PORT=9000 \
+	PHP_XDEBUG_IDEKEY=IDEKEY
 
 RUN set -ex \
 	&& echo '#!/bin/sh' >> /usr/local/bin/xdebug \
@@ -203,14 +157,6 @@ RUN set -ex \
 	&& echo 'xdebug.remote_port=${PHP_XDEBUG_REMOTE_PORT}' >> /usr/local/etc/php/conf.d/custom-xdebug.ini \
 	&& echo 'xdebug.idekey=${PHP_XDEBUG_IDEKEY}' >> /usr/local/etc/php/conf.d/custom-xdebug.ini
 
-RUN set -ex \
-	&& rm -rf /tmp/pear ~/.pearrc \
-	&& docker-php-source delete
-
-RUN set -ex \
-	&& mkdir -p /var/www/.composer \
-	&& chown -Rf www-data:www-data /var/www
-
 # Install Composer
 
 RUN set -ex \
@@ -219,13 +165,22 @@ RUN set -ex \
 USER www-data
 
 RUN set -ex \
-	&& composer g require hirak/prestissimo \
-	&& rm -rf /var/www/.composer/cache/*
-
-RUN set -ex \
-	&& composer g require psy/psysh:@stable \
+	&& mkdir -p /var/www/.composer \
+	&& composer g require \
+		hirak/prestissimo \
+		psy/psysh:@stable \
 	&& rm -rf /var/www/.composer/cache/*
 
 ENV PATH="/var/www/.composer/vendor/bin:${PATH}"
 
 USER root
+
+# Install Node, NPM, Grunt and Yarn
+
+RUN set -ex \
+	&& curl -sL https://deb.nodesource.com/setup_10.x | bash - \
+	&& apt-get update \
+	&& apt-get install -y --no-install-recommends nodejs \
+	&& apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
+	&& rm -r /var/lib/apt/lists/* \
+    && npm i -g grunt-cli yarn

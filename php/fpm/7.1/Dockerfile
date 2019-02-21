@@ -1,4 +1,4 @@
-FROM php:7.3-fpm as base
+FROM php:7.1-fpm as base
 
 MAINTAINER Igor Agapie <igoragapie@gmail.com>
 
@@ -92,6 +92,7 @@ RUN set -ex \
 		sockets \
 		wddx \
 		xmlrpc \
+		mcrypt \
 	&& docker-php-ext-configure gd --with-freetype-dir=/usr/include/ --with-jpeg-dir=/usr/include/ \
 	&& docker-php-ext-install -j$(nproc) gd \
 	&& docker-php-ext-configure imap --with-kerberos --with-imap-ssl \
@@ -106,18 +107,18 @@ RUN set -ex \
 RUN set -ex \
 	&& pecl update-channels \
 	&& pecl install \
-		mcrypt-1.0.2 \
 		memcached \
 		apcu \
 		redis \
 		oauth \
-		xdebug-2.7.0RC2 \
+		xdebug \
+		ssh2-1.1.2 \
 	&& docker-php-ext-enable \
-		mcrypt \
 		memcached \
 		apcu \
 		redis \
 		oauth \
+		ssh2 \
 	&& echo "zend_extension=$(find /usr/local/lib/php/extensions/ -name xdebug.so)" > /usr/local/etc/php/conf.d/xdebug.iniOLD \
 	&& rm -rf /tmp/pear ~/.pearrc \
 	&& docker-php-source delete

@@ -21,4 +21,3 @@
     - NodeJS 10.x
     - Yarn
     - Grunt CLI
-    - Supercronic (for cron)

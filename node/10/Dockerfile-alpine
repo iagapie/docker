@@ -1,0 +1,32 @@
+FROM node:10-alpine
+
+MAINTAINER Igor Agapie <igoragapie@gmail.com>
+
+ENV APP_DIR=/var/www/app
+
+RUN set -ex \
+	&& apk add --no-cache --virtual .persistent-deps \
+		tini \
+		nano \
+		git \
+		shadow \
+		make \
+		g++ \
+		gcc \
+		libgcc \
+		libstdc++ \
+		linux-headers \
+		python \
+		gnupg \
+		curl
+
+RUN set -eux; \
+	[ ! -d "${APP_DIR}" ]; \
+	mkdir -p ${APP_DIR}; \
+	chown node:node ${APP_DIR}; \
+    chmod 777 ${APP_DIR}
+
+# https://www.elastic.io/nodejs-as-pid-1-under-docker-images/
+ENTRYPOINT ["tini", "-e", "143", "--"]
+
+WORKDIR ${APP_DIR}

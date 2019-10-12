@@ -3,6 +3,7 @@
 ### Docker image
 ```
 # docker pull iagapie/php:7.3-fpm
+# docker pull iagapie/php:7.3-fpm-alpine
 ```
 
 ### XDEBUG Enable/Disable
@@ -18,6 +19,6 @@
 ### Installed
     - Composer
     - Psysh
-    - NodeJS 10.x
-    - Yarn
-    - Grunt CLI
+    - NodeJS 10.x (debian)
+    - Yarn (debian)
+    - Grunt CLI (debian)

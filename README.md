@@ -1,4 +1,4 @@
-# Docker (Debian)
+# Docker
 
 ### Context
     

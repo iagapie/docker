@@ -1,0 +1,314 @@
+#!/bin/sh
+
+set -e
+
+# gd zip imap ldap pdo_odbc odbc ffi wddx bcmath opcache snmp intl soap xsl bz2 calendar dba enchant exif gettext gmp mysqli pcntl pdo_mysql pdo_pgsql pgsql sockets xmlrpc oauth memcached redis mcrypt apcu xdebug
+
+# Reset the Internal Field Separator
+reset_ifs() {
+	IFS='	 
+'
+}
+
+# Get the PHP version
+php_version() {
+	php -r 'echo PHP_VERSION;'
+}
+
+# Get the PHP Major-Minor version as an integer value, in format MMmm (example: 703 for PHP 7.3.1)
+#
+# Output:
+#   The PHP numeric Major-Minor version
+php_version_major_minor() {
+	php -r 'echo (PHP_MAJOR_VERSION * 100) + PHP_MINOR_VERSION;'
+}
+
+# Get if the PHP compiled with thread-safety enabled (zts)
+is_zts() {
+	php -r 'echo PHP_ZTS;'
+}
+
+# Check if a word is in a list of space-separated string
+#
+# Arguments:
+#   $1: the word to be checked
+#   $#: the list
+#
+# Return:
+#   0 (true): if the word is in the list
+#   1 (false): if the word is not in the list
+word_in_list () {
+	for w in ${2}; do
+		if [[ "${1}" = "${w}" ]]; then
+			return 0
+		fi
+	done
+	return 1
+}
+
+# Get the normalized list of already installed PHP modules
+#
+# Output:
+#   Space-separated list of module handles
+get_installed_modules() {
+	local modules=""
+	reset_ifs
+	for module in $(php -m); do
+		case "${module}" in
+			\[PHP | Modules\] | \[Zend | Modules\] | Zend)
+				;;
+			Core|PDO|PDO_*|Phar|Reflection|SimpleXML|SPL|SQLite|Xdebug|OPcache|OAuth)
+				modules="${modules} $(LC_CTYPE=C printf '%s' ${module} | tr '[:upper:]' '[:lower:]')"
+				;;
+			*\ *|*A*|*B*|*C*|*D*|*E*|*F*|*G*|*H*|*I*|*J*|*K*|*L*|*M*|*N*|*O*|*P*|*Q*|*R*|*S*|*T*|*U*|*V*|*W*|*X*|*Y*|*Z*)
+				printf '### WARNING Unrecognized module name: %s ###\n' "${module}" >&2
+				;;
+			*)
+				modules="${modules} ${module}"
+				;;
+		esac
+	done
+	reset_ifs
+	printf '%s' "${modules}"
+}
+
+ext_install() {
+	printf '\n### INSTALLING EXTENSION %s ###\n' "${1}"
+
+	ext="${1}"; shift
+	
+	if [[ ! -z "${@}" ]]; then
+		docker-php-ext-configure "${ext}" "${@}"
+	fi
+
+	docker-php-ext-install -j$(nproc) "${ext}"
+}
+
+pecl_install() {
+	printf '\n### INSTALLING PECL EXTENSION %s ###\n' "${1}"
+
+	pecl install "${1}"
+
+	for name in $(echo $1 | tr '-' ' '); do
+		docker-php-ext-enable "${name}"
+		break
+	done
+}
+
+deps_install() {
+	local phpize_deps="autoconf dpkg-dev dpkg file g++ gcc libc-dev make pkgconf re2c libgcrypt-dev"
+
+	while :; do
+		if [[ "$#" -lt 1 ]]; then
+			break
+		fi
+
+		case "${1}" in
+			imap)
+				phpize_deps="${phpize_deps} imap-dev krb5-dev"
+				;;
+			intl)
+				phpize_deps="${phpize_deps} icu-dev"
+				;;
+			gettext)
+				phpize_deps="${phpize_deps} gettext-dev"
+				;;
+			gd)
+				phpize_deps="${phpize_deps} freetype-dev libjpeg-turbo-dev libpng-dev"
+				;;
+			ffi)
+				phpize_deps="${phpize_deps} libffi-dev"
+				;;
+			enchant)
+				phpize_deps="${phpize_deps} enchant-dev"
+				;;
+			ldap)
+				phpize_deps="${phpize_deps} openldap-dev"
+				;;
+			zip)
+				phpize_deps="${phpize_deps} zlib-dev libzip-dev"
+				;;
+			bz2)
+				phpize_deps="${phpize_deps} bzip2-dev"
+				;;
+			snmp)
+				phpize_deps="${phpize_deps} net-snmp-dev"
+				;;
+			gmp)
+				phpize_deps="${phpize_deps} gmp-dev"
+				;;
+			xsl)
+				phpize_deps="${phpize_deps} libxslt-dev"
+				;;
+			xmlrpc|soap)
+				phpize_deps="${phpize_deps} libxml2-dev"
+				;;
+			odbc|pdo_odbc)
+				phpize_deps="${phpize_deps} unixodbc-dev"
+				;;
+			pgsql|pdo_pgsql)
+				phpize_deps="${phpize_deps} postgresql-dev"
+				;;
+			memcached)
+				phpize_deps="${phpize_deps} libmemcached-dev"
+				;;
+			mcrypt)
+				phpize_deps="${phpize_deps} libmcrypt-dev"
+				;;
+		esac
+
+		shift
+	done
+
+	printf '### INSTALLING DEPENDENCIES %s ###\n' "${phpize_deps}"
+
+	apk add --no-cache --virtual .build-deps $phpize_deps
+}
+
+modules_install() {
+	while :; do
+		if [[ "$#" -lt 1 ]]; then
+			break
+		fi
+
+		case "${1}" in
+			gd)
+				ext_install "${1}" -enable-gd-native-ttf --with-freetype-dir=/usr/include/ --with-jpeg-dir=/usr/include/
+				;;
+			zip)
+				ext_install "${1}" --with-libzip
+				;;
+			imap)
+				PHP_OPENSSL=yes ext_install "${1}" --with-kerberos --with-imap-ssl
+				;;
+			ldap)
+				ext_install "${1}" --with-libdir=lib/ 
+				;;
+			pdo_odbc)
+				ext_install "${1}" --with-pdo-odbc=unixODBC,/usr 
+				;;
+			odbc)
+				{ \
+			        echo '# https://github.com/docker-library/php/issues/103#issuecomment-271413933'; \
+			        echo 'AC_DEFUN([PHP_ALWAYS_SHARED],[])dnl'; \
+			        echo; \
+			        cat /usr/src/php/ext/odbc/config.m4; \
+			    } > temp.m4 \
+			    && mv temp.m4 /usr/src/php/ext/odbc/config.m4 \
+				&& ext_install "${1}" --with-unixODBC=shared,/usr
+				;;
+			ffi)
+				if [[ "$(php_version_major_minor)" -gt 703 ]]; then
+					ext_install "${1}" --with-ffi
+				fi
+				;;
+			wddx)
+				if [[ "$(php_version_major_minor)" -lt 704 ]]; then
+					ext_install "${1}"
+				fi
+				;;
+			bcmath|opcache|snmp|intl|soap|xsl|bz2|calendar|dba|enchant|exif|gettext|gmp|mysqli|pcntl|pdo_mysql|pdo_pgsql|pgsql|sockets|xmlrpc)
+				ext_install "${1}"
+				;;
+			oauth|memcached|redis)
+				if [[ "$(php_version_major_minor)" -lt 704 ]]; then
+					pecl_install "${1}"
+				fi
+				;;
+			mcrypt)
+				if [[ "$(php_version_major_minor)" -lt 704 ]]; then
+					pecl_install "${1}-1.0.2"
+				fi
+				;;
+			apcu)
+				pecl_install "${1}"
+				;;
+			xdebug)
+				pecl_install "${1}-2.8.0beta2"
+				echo '#!/bin/sh' >> /usr/local/bin/xdebug \
+				&& echo 'set -e' >> /usr/local/bin/xdebug \
+				&& echo '' >> /usr/local/bin/xdebug \
+				&& echo 'if [ -s "/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini" ]; then' >> /usr/local/bin/xdebug \
+				&& echo '    mv /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini /usr/local/etc/php/conf.d/docker-php-ext-xdebug.iniOLD \' >> /usr/local/bin/xdebug \
+				&& echo '    && kill -USR2 1 \' >> /usr/local/bin/xdebug \
+				&& echo '    && echo "========= XDebug was disabled ========="' >> /usr/local/bin/xdebug \
+				&& echo 'else' >> /usr/local/bin/xdebug \
+				&& echo '    mv /usr/local/etc/php/conf.d/docker-php-ext-xdebug.iniOLD /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini \' >> /usr/local/bin/xdebug \
+				&& echo '    && kill -USR2 1 \' >> /usr/local/bin/xdebug \
+				&& echo '    && echo "========= XDebug was enabled ========="' >> /usr/local/bin/xdebug \
+				&& echo 'fi' >> /usr/local/bin/xdebug \
+				&& chmod +x /usr/local/bin/xdebug \
+				&& echo 'xdebug.default_enable=1' >> /usr/local/etc/php/conf.d/custom-xdebug.ini \
+				&& echo 'xdebug.cli_color=1' >> /usr/local/etc/php/conf.d/custom-xdebug.ini \
+				&& echo 'xdebug.var_display_max_depth=10' >> /usr/local/etc/php/conf.d/custom-xdebug.ini
+				;;
+		esac
+
+		shift
+	done
+}
+
+os_clean() {
+	printf '### CLEANING THE SYSTEM ###\n'
+
+	docker-php-source delete
+
+	local runDeps="$( \
+        scanelf --needed --nobanner --format '%n#p' --recursive /usr/local \
+            | tr ',' '\n' \
+            | sort -u \
+            | awk 'system("[ -e /usr/local/lib/" $1 " ]") == 0 { next } { print "so:" $1 }' \
+    )"
+
+    apk add --no-cache --virtual .php-rundeps $runDeps
+    apk del .build-deps
+}
+
+case "$(php_version_major_minor)" in
+	701|702|703|704)
+		;;
+	*)
+		printf "### ERROR: Unsupported PHP version: %s ###\n" "$(php_version)"
+		exit 1
+esac
+
+installed="$(get_installed_modules)"
+to_install=""
+
+while :; do
+	if [[ "$#" -lt 1 ]]; then
+		break
+	fi
+
+	if word_in_list "${1}" "${to_install}"; then
+		printf '### WARNING Duplicated extension name specified: %s ###\n' "${1}"
+	elif word_in_list "${1}" "${installed}"; then
+		printf '### WARNING Extension already installed: %s ###\n' "${1}"
+	else
+		case "${1}" in
+			pdo_odbc|pdo_pgsql)
+				to_install="${1} ${to_install}"
+				;;
+			*)
+				to_install="${to_install} ${1}"
+				;;
+		esac
+	fi
+	shift
+done
+
+if [[ -z "${to_install}" ]]; then
+	printf '### NO EXTENSIONS TO INSTALL ###\n\n'
+	os_clean
+	exit 0
+fi
+
+printf '\n### STARTING TO INSTALL EXTENSIONS %s ###\n\n' "${to_install}"
+
+deps_install ${to_install}
+docker-php-source extract
+modules_install ${to_install}
+os_clean
+
+printf '### EXTENSIONS INSTALLED SUCCESSFULLY ###\n\n'
+exit 0

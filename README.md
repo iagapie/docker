@@ -9,5 +9,5 @@
     - [7.3](php/fpm/7.3)
 - PHP CLI
     - [7.3](php/cli/7.3)
-    - [7.4](php/cli/7.4-rc)
+    - [7.4-rc](php/cli/7.4)
 - [Example](samples)

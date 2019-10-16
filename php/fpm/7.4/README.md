@@ -1,9 +1,8 @@
-# PHP FPM 7.2
+# PHP FPM 7.4-rc
 
 ### Docker image
 ```
-# docker pull iagapie/php:7.2-fpm
-# docker pull iagapie/php:7.2-fpm-alpine
+# docker pull iagapie/php:7.4-fpm-alpine
 ```
 
 ### XDEBUG Enable/Disable

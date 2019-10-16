@@ -19,6 +19,3 @@
 ### Installed
     - Composer
     - Psysh
-    - NodeJS 10.x (debian)
-    - Yarn (debian)
-    - Grunt CLI (debian)

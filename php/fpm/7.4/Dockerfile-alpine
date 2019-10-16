@@ -1,4 +1,4 @@
-FROM php:7.2-fpm-alpine as base
+FROM php:7.4-rc-fpm-alpine as base
 
 MAINTAINER Igor Agapie <igoragapie@gmail.com>
 
@@ -20,6 +20,7 @@ RUN set -ex \
 		ldap \
 		pdo_odbc \
 		odbc \
+		ffi \
 		bcmath \
 		opcache \
 		snmp \
@@ -40,11 +41,6 @@ RUN set -ex \
 		pgsql \
 		sockets \
 		xmlrpc \
-		wddx \
-		oauth \
-		memcached \
-		redis \
-		mcrypt \
 		apcu \
 		xdebug
 

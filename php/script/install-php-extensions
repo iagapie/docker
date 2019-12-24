@@ -176,10 +176,10 @@ modules_install() {
 				ext_install "${1}" -enable-gd-native-ttf --with-freetype-dir=/usr/include/ --with-jpeg-dir=/usr/include/
 				;;
 			zip)
-				if [[ "$(php_version_major_minor)" -lt 740 ]]; then
-					ext_install "${1}" --with-libzip
-				else
+				if [[ "$(php_version_major_minor)" -gt 703 ]]; then
 					ext_install "${1}" --with-zip
+				else
+					ext_install "${1}" --with-libzip					
 				fi
 				;;
 			imap)

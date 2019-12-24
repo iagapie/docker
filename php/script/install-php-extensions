@@ -228,7 +228,7 @@ modules_install() {
 				pecl_install "${1}"
 				;;
 			xdebug)
-				pecl_install "${1}-2.8.0beta2"
+				pecl_install "${1}-2.9.0"
 				echo '#!/bin/sh' >> /usr/local/bin/xdebug \
 				&& echo 'set -e' >> /usr/local/bin/xdebug \
 				&& echo '' >> /usr/local/bin/xdebug \

@@ -176,7 +176,11 @@ modules_install() {
 				ext_install "${1}" -enable-gd-native-ttf --with-freetype-dir=/usr/include/ --with-jpeg-dir=/usr/include/
 				;;
 			zip)
-				ext_install "${1}" --with-libzip
+				if [[ "$(php_version_major_minor)" -lt 740 ]]; then
+					ext_install "${1}" --with-libzip
+				else
+					ext_install "${1}" --with-zip
+				fi
 				;;
 			imap)
 				PHP_OPENSSL=yes ext_install "${1}" --with-kerberos --with-imap-ssl

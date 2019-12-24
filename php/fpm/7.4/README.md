@@ -1,4 +1,4 @@
-# PHP FPM 7.4-rc
+# PHP FPM 7.4
 
 ### Docker image
 ```

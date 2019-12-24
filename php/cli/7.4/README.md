@@ -1,4 +1,4 @@
-# PHP CLI 7.4-rc
+# PHP CLI 7.4
 
 ### Docker image
 ```
